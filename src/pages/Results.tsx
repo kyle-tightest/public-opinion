@@ -22,7 +22,7 @@ const Results: React.FC = () => {
 
   useEffect(() => {
     // Fetch questions to map question_id to question_text
-    fetch('http://localhost:5000/questions')
+    fetch('/api/questions')
       .then(res => res.json())
       .then(data => setQuestions(data))
       .catch(err => console.error('Error fetching questions:', err));
@@ -55,7 +55,7 @@ const Results: React.FC = () => {
   const fetchProximityAnswers = async () => {
     if (!location) return;
     try {
-      const response = await fetch(`http://localhost:5000/answers/proximity?latitude=${location.latitude}&longitude=${location.longitude}&radius_km=${radius}`);
+      const response = await fetch(`/api/answers/proximity?latitude=${location.latitude}&longitude=${location.longitude}&radius_km=${radius}`);
       const data = await response.json();
       setProximityAnswers(data);
     } catch (error) {

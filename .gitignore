@@ -98,3 +98,4 @@ web_modules/
 
 # Backend specific
 server/dist/
+.vercel

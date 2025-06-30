@@ -14,7 +14,7 @@ const Questionnaire: React.FC = () => {
 
   useEffect(() => {
     // Fetch questions
-    fetch('http://localhost:5000/questions')
+    fetch('/api/questions')
       .then(res => res.json())
       .then(data => setQuestions(data))
       .catch(err => console.error('Error fetching questions:', err));
@@ -58,7 +58,7 @@ const Questionnaire: React.FC = () => {
       }
 
       try {
-        await fetch('http://localhost:5000/answers', {
+        await fetch('/api/answers', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
