@@ -2,31 +2,30 @@ import React, { useEffect, useState } from 'react';
 
 interface Answer {
   id: number;
-  question_id: number;
+  question_text: string;
   answer_text: string;
   latitude: number;
   longitude: number;
   created_at: string;
 }
 
-interface Question {
-  id: number;
-  question_text: string;
+// New interface to hold the aggregated results
+interface ProcessedResults {
+  [questionText: string]: {
+    totalVotes: number;
+    options: {
+      [optionText: string]: number;
+    };
+  };
 }
 
 const Results: React.FC = () => {
   const [proximityAnswers, setProximityAnswers] = useState<Answer[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [processedResults, setProcessedResults] = useState<ProcessedResults>({});
   const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(null);
   const [radius, setRadius] = useState<number>(10); // Default radius in km
 
   useEffect(() => {
-    // Fetch questions to map question_id to question_text
-    fetch('/api/questions')
-      .then(res => res.json())
-      .then(data => setQuestions(data))
-      .catch(err => console.error('Error fetching questions:', err));
-
     // Get user's location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -52,6 +51,37 @@ const Results: React.FC = () => {
     }
   }, [location, radius]);
 
+  // This effect processes the raw answer data into aggregated results
+  useEffect(() => {
+    if (proximityAnswers.length > 0) {
+      const results: ProcessedResults = proximityAnswers.reduce((acc, answer) => {
+        const { question_text, answer_text } = answer;
+
+        // Initialize the question object if it's the first time we see it
+        if (!acc[question_text]) {
+          acc[question_text] = {
+            totalVotes: 0,
+            options: {},
+          };
+        }
+
+        // Initialize the option counter if it's the first time we see it
+        if (!acc[question_text].options[answer_text]) {
+          acc[question_text].options[answer_text] = 0;
+        }
+
+        // Increment the total and specific option counts
+        acc[question_text].totalVotes += 1;
+        acc[question_text].options[answer_text] += 1;
+
+        return acc;
+      }, {} as ProcessedResults);
+      setProcessedResults(results);
+    } else {
+      setProcessedResults({}); // Clear results if no answers are found
+    }
+  }, [proximityAnswers]);
+
   const fetchProximityAnswers = async () => {
     if (!location) return;
     try {
@@ -61,11 +91,6 @@ const Results: React.FC = () => {
     } catch (error) {
       console.error('Error fetching proximity answers:', error);
     }
-  };
-
-  const getQuestionText = (questionId: number) => {
-    const question = questions.find(q => q.id === questionId);
-    return question ? question.question_text : `Question ID: ${questionId}`;
   };
 
   return (
@@ -95,16 +120,30 @@ const Results: React.FC = () => {
         Refresh Results
       </button>
 
-      {proximityAnswers.length === 0 ? (
+      {Object.keys(processedResults).length === 0 ? (
         <p className="text-gray-300">No answers found near your location within the selected radius.</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl">
-          {proximityAnswers.map((answer) => (
-            <div key={answer.id} className="bg-gray-800 bg-opacity-70 p-6 rounded-lg shadow-lg border border-gray-700">
-              <p className="text-lg font-semibold mb-2 text-blue-300">{getQuestionText(answer.question_id)}</p>
-              <p className="text-md mb-2 text-gray-200">Answer: <span className="font-bold text-white">{answer.answer_text}</span></p>
-              <p className="text-sm text-gray-400">Lat: {answer.latitude.toFixed(4)}, Lon: {answer.longitude.toFixed(4)}</p>
-              <p className="text-sm text-gray-400">{new Date(answer.created_at).toLocaleString()}</p>
+        <div className="space-y-8 w-full max-w-4xl">
+          {Object.entries(processedResults).map(([question, data]) => (
+            <div key={question} className="bg-gray-800 bg-opacity-70 p-6 rounded-lg shadow-lg border border-gray-700">
+              <h2 className="text-xl font-semibold mb-2 text-blue-300">{question}</h2>
+              <p className="text-sm text-gray-400 mb-4">Total Votes: {data.totalVotes}</p>
+              <div className="space-y-3">
+                {Object.entries(data.options)
+                  .sort(([, countA], [, countB]) => countB - countA) // Sort by most popular
+                  .map(([option, count]) => {
+                  const percentage = ((count / data.totalVotes) * 100).toFixed(1);
+                  return (
+                    <div key={option}>
+                      <div className="flex justify-between items-center mb-1 text-gray-200">
+                        <span>{option}</span>
+                        <span className="font-semibold">{percentage}% ({count})</span>
+                      </div>
+                      <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden"><div className="bg-blue-500 h-4 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }} /></div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ))}
         </div>
